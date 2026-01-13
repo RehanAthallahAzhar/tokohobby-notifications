@@ -1,0 +1,37 @@
+# Binaries
+notification-worker
+*.exe
+*.exe~
+
+# Environment
+.env
+.env.local
+
+# Go
+vendor/
+*.test
+*.out
+
+# Database migrations (keep structure, ignore generated)
+db/migrations/*.down.sql
+db/queries/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Temporary
+tmp/
+*.tmp
+
+
+IMPLEMENTATION_GUIDE.md
+IMPLEMENTATION_SUMMARY.md
+WALKTHROUGH.md
+DATABASE_IMPLEMENTATION.md
