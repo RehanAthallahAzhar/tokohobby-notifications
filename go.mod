@@ -3,8 +3,8 @@ module github.com/RehanAthallahAzhar/tokohobby-notifications
 go 1.24.5
 
 require (
-	github.com/RehanAthallahAzhar/tokohobby-messaging-go v0.0.0-00010101000000-000000000000
-	github.com/google/uuid v1.5.0
+	github.com/RehanAthallahAzhar/tokohobby-messaging v0.5.3
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/sirupsen/logrus v1.9.3
 )
@@ -19,4 +19,4 @@ require (
 	golang.org/x/text v0.29.0 // indirect
 )
 
-replace github.com/RehanAthallahAzhar/tokohobby-messaging-go => ../messaging
+replace github.com/RehanAthallahAzhar/tokohobby-messaging => ../messaging

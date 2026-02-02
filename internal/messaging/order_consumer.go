@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	messaging "github.com/RehanAthallahAzhar/tokohobby-messaging-go"
+	messaging "github.com/RehanAthallahAzhar/tokohobby-messaging/rabbitmq"
 	"github.com/RehanAthallahAzhar/tokohobby-notifications/internal/services"
 	"github.com/sirupsen/logrus"
 )
@@ -43,10 +43,18 @@ func (c *OrderEventConsumer) Start(ctx context.Context) error {
 		switch eventType.Type {
 		case "order.created":
 			return c.handleOrderCreated(ctx, body)
-		case "order.status.changed":
-			return c.handleOrderStatusChanged(ctx, body)
+		case "order.paid":
+			return c.handleOrderPaid(ctx, body)
 		case "order.shipped":
 			return c.handleOrderShipped(ctx, body)
+		case "order.delivered":
+			return c.handleOrderDelivered(ctx, body)
+		case "order.cancelled":
+			return c.handleOrderCancelled(ctx, body)
+		case "order.refunded":
+			return c.handleOrderRefunded(ctx, body)
+		case "order.status.changed":
+			return c.handleOrderStatusChanged(ctx, body)
 		default:
 			c.log.Warnf("Unknown event type: %s", eventType.Type)
 			return nil
@@ -159,6 +167,121 @@ func (c *OrderEventConsumer) handleOrderShipped(ctx context.Context, body []byte
 			"tracking_number":   event.TrackingNumber,
 			"courier":           event.Courier,
 			"estimated_arrival": event.EstimatedArrival,
+		},
+	})
+}
+
+func (c *OrderEventConsumer) handleOrderPaid(ctx context.Context, body []byte) error {
+	var event OrderPaidEvent
+	if err := json.Unmarshal(body, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal OrderPaidEvent: %w", err)
+	}
+
+	c.log.WithFields(logrus.Fields{
+		"order_id": event.OrderID,
+		"user_id":  event.UserID,
+		"amount":   event.PaidAmount,
+		"gateway":  event.PaymentGateway,
+	}).Info("Processing OrderPaidEvent")
+
+	return c.notifService.CreateAndSendNotification(ctx, &services.CreateNotificationRequest{
+		UserID:   event.UserID,
+		Type:     "order",
+		Category: "paid",
+		Title:    "Pembayaran Berhasil",
+		Message:  fmt.Sprintf("Pembayaran pesanan #%s sebesar Rp %.0f telah dikonfirmasi via %s", event.OrderID, event.PaidAmount, event.PaymentGateway),
+		Channels: []string{"email", "push", "in_app"},
+		Metadata: map[string]interface{}{
+			"order_id":        event.OrderID,
+			"paid_amount":     event.PaidAmount,
+			"payment_gateway": event.PaymentGateway,
+			"transaction_id":  event.TransactionID,
+		},
+	})
+}
+
+func (c *OrderEventConsumer) handleOrderDelivered(ctx context.Context, body []byte) error {
+	var event OrderDeliveredEvent
+	if err := json.Unmarshal(body, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal OrderDeliveredEvent: %w", err)
+	}
+
+	c.log.WithFields(logrus.Fields{
+		"order_id": event.OrderID,
+		"user_id":  event.UserID,
+		"receiver": event.ReceiverName,
+	}).Info("Processing OrderDeliveredEvent")
+
+	return c.notifService.CreateAndSendNotification(ctx, &services.CreateNotificationRequest{
+		UserID:   event.UserID,
+		Type:     "order",
+		Category: "delivered",
+		Title:    "Pesanan Telah Sampai",
+		Message:  fmt.Sprintf("Pesanan #%s telah diterima oleh %s", event.OrderID, event.ReceiverName),
+		Channels: []string{"email", "push", "in_app"},
+		Metadata: map[string]interface{}{
+			"order_id":       event.OrderID,
+			"receiver_name":  event.ReceiverName,
+			"delivery_proof": event.DeliveryProof,
+		},
+	})
+}
+
+func (c *OrderEventConsumer) handleOrderCancelled(ctx context.Context, body []byte) error {
+	var event OrderCancelledEvent
+	if err := json.Unmarshal(body, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal OrderCancelledEvent: %w", err)
+	}
+
+	c.log.WithFields(logrus.Fields{
+		"order_id":     event.OrderID,
+		"user_id":      event.UserID,
+		"cancelled_by": event.CancelledBy,
+		"reason":       event.CancelReason,
+	}).Info("Processing OrderCancelledEvent")
+
+	return c.notifService.CreateAndSendNotification(ctx, &services.CreateNotificationRequest{
+		UserID:   event.UserID,
+		Type:     "order",
+		Category: "cancelled",
+		Title:    "Pesanan Dibatalkan",
+		Message:  fmt.Sprintf("Pesanan #%s telah dibatalkan. Alasan: %s. Refund Rp %.0f akan diproses", event.OrderID, event.CancelReason, event.RefundAmount),
+		Channels: []string{"email", "push", "in_app"},
+		Metadata: map[string]interface{}{
+			"order_id":         event.OrderID,
+			"cancel_reason":    event.CancelReason,
+			"cancelled_by":     event.CancelledBy,
+			"refund_amount":    event.RefundAmount,
+			"cancellation_fee": event.CancellationFee,
+		},
+	})
+}
+
+func (c *OrderEventConsumer) handleOrderRefunded(ctx context.Context, body []byte) error {
+	var event OrderRefundedEvent
+	if err := json.Unmarshal(body, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal OrderRefundedEvent: %w", err)
+	}
+
+	c.log.WithFields(logrus.Fields{
+		"order_id": event.OrderID,
+		"user_id":  event.UserID,
+		"amount":   event.RefundAmount,
+	}).Info("Processing OrderRefundedEvent")
+
+	return c.notifService.CreateAndSendNotification(ctx, &services.CreateNotificationRequest{
+		UserID:   event.UserID,
+		Type:     "order",
+		Category: "refunded",
+		Title:    "Refund Diproses",
+		Message:  fmt.Sprintf("Refund pesanan #%s sebesar Rp %.0f sedang diproses via %s", event.OrderID, event.RefundAmount, event.RefundMethod),
+		Channels: []string{"email", "push", "in_app"},
+		Metadata: map[string]interface{}{
+			"order_id":         event.OrderID,
+			"refund_amount":    event.RefundAmount,
+			"refund_method":    event.RefundMethod,
+			"refund_reference": event.RefundReference,
+			"expected_credit":  event.ExpectedCredit,
 		},
 	})
 }

@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	rmqLib "github.com/RehanAthallahAzhar/tokohobby-messaging-go"
+	rmqLib "github.com/RehanAthallahAzhar/tokohobby-messaging/rabbitmq"
 	"github.com/RehanAthallahAzhar/tokohobby-notifications/internal/configs"
 	"github.com/RehanAthallahAzhar/tokohobby-notifications/internal/messaging"
 	"github.com/RehanAthallahAzhar/tokohobby-notifications/internal/repositories"
@@ -60,19 +60,7 @@ func main() {
 		logger.WithError(err).Fatal("Failed to setup order exchange")
 	}
 
-	logger.Info("Exchanges setup complete")
-
-	// Setup exchanges
-	if err := rmqLib.SetupOrderExchange(rmq); err != nil {
-		logger.WithError(err).Fatal("Failed to setup order exchange")
-	}
-
-	// Setup user exchange
-	if err := rmqLib.SetupUserExchange(rmq); err != nil {
-		logger.WithError(err).Fatal("Failed to setup user exchange")
-	}
-
-	logger.Info("All exchanges configured successfully")
+	logger.Info("Order exchange setup complete")
 
 	// Connect to database
 	db, err := configs.NewDatabaseConnection(&cfg.Database, logger)
@@ -104,7 +92,7 @@ func main() {
 
 	// Initialize consumers
 	orderConsumer := messaging.NewOrderEventConsumer(rmq, notifService, logger)
-	userConsumer := messaging.NewUserEventConsumer(rmq, notifService, logger)
+	blogConsumer := messaging.NewBlogEventConsumer(rmq, notifService, logger)
 
 	// Start consumers with context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -117,10 +105,10 @@ func main() {
 		}
 	}()
 
-	// Start user consumer
+	// Start blog consumer
 	go func() {
-		if err := userConsumer.Start(ctx); err != nil {
-			logger.WithError(err).Error("User consumer error")
+		if err := blogConsumer.Start(ctx); err != nil {
+			logger.WithError(err).Error("Blog consumer error")
 		}
 	}()
 
